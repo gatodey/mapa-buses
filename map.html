@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Mapa de Usuarios</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body style="margin:0; padding:0">
+  <div id="map" style="width:100%; height:100vh;"></div>
+
+  <script>
+    // Inicializar mapa (Arequipa como punto inicial)
+    var map = L.map('map').setView([-16.409, -71.537], 13);
+
+    // Capa base
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Icono usuario
+    var userIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+      iconSize:[25,25]
+    });
+
+    // Guardamos marcadores
+    var usuarios = {};
+
+    // 🔑 Tu URL de Firebase (termina en .json)
+    var firebaseURL = "https://buscatcher-copiar-default-rtdb.firebaseio.com/usuarios.json";
+
+    // Función para actualizar usuarios
+    async function actualizarMapa() {
+      let response = await fetch(firebaseURL);
+      let data = await response.json();
+
+      if (data) {
+        Object.keys(data).forEach(userId => {
+          let coords = data[userId].split(",");
+          let lat = parseFloat(coords[0]);
+          let lon = parseFloat(coords[1]);
+
+          if (usuarios[userId]) {
+            usuarios[userId].setLatLng([lat, lon]);
+          } else {
+            usuarios[userId] = L.marker([lat, lon], {icon: userIcon})
+              .addTo(map)
+              .bindPopup("👤 " + userId);
+          }
+        });
+      }
+    }
+
+    // Actualizar cada 5 segundos
+    setInterval(actualizarMapa, 5000);
+    actualizarMapa();
+  </script>
+</body>
+</html>
