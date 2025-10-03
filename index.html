@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Mapa Buses y Usuarios</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body style="margin:0; padding:0">
+  <div id="map" style="width:100%; height:100vh;"></div>
+
+  <script>
+    // Crear mapa
+    var map = L.map('map').setView([-16.4, -71.5], 13);
+
+    // Tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Iconos
+    var userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', iconSize:[25,25] });
+    var busIcon  = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61231.png',  iconSize:[30,30] });
+
+    // Colecciones de marcadores
+    var usuarios = {};
+    var buses = {};
+
+    // URL Firebase (cambia por la tuya)
+    var firebaseURL = "https://buscatcher-copiar-default-rtdb.firebaseio.com/.json";
+
+    // Función actualizar marcadores
+    async function actualizarMapa() {
+      let response = await fetch(firebaseURL);
+      let data = await response.json();
+      if (!data) return;
+
+      // Usuarios
+      if (data.usuarios) {
+        Object.keys(data.usuarios).forEach(uid => {
+          let u = data.usuarios[uid];
+          if (!u.lat || !u.log) return;
+
+          if (usuarios[uid]) {
+            usuarios[uid].setLatLng([u.lat, u.log]);
+          } else {
+            usuarios[uid] = L.marker([u.lat, u.log], {icon:userIcon}).addTo(map).bindPopup("👤 " + uid);
+          }
+        });
+      }
+
+      // Buses
+      if (data.buses) {
+        Object.keys(data.buses).forEach(bid => {
+          let b = data.buses[bid];
+          if (!b.lat || !b.log) return;
+
+          if (buses[bid]) {
+            buses[bid].setLatLng([b.lat, b.log]);
+          } else {
+            buses[bid] = L.marker([b.lat, b.log], {icon:busIcon}).addTo(map).bindPopup("🚍 " + bid);
+          }
+        });
+      }
+    }
+
+    // Actualizar cada 5s
+    setInterval(actualizarMapa, 5000);
+    actualizarMapa();
+  </script>
+</body>
+</html>
