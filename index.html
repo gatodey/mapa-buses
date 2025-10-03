@@ -10,62 +10,81 @@
   <div id="map" style="width:100%; height:100vh;"></div>
 
   <script>
-    // Crear mapa
-    var map = L.map('map').setView([-16.4, -71.5], 13);
+    // Inicializar mapa (centro temporal)
+    var map = L.map('map').setView([-16.409, -71.537], 13);
 
-    // Tiles
+    // Cargar mapa base OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Iconos
-    var userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', iconSize:[25,25] });
-    var busIcon  = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61231.png',  iconSize:[30,30] });
+    // Iconos personalizados
+    var userIcon = L.icon({ 
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', 
+      iconSize:[30,30] 
+    });
+    var otherIcon = L.icon({ 
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61231.png', 
+      iconSize:[30,30] 
+    });
 
-    // Colecciones de marcadores
+    // Marcadores
+    var myMarker = null;
     var usuarios = {};
-    var buses = {};
 
-    // URL Firebase (cambia por la tuya)
-    var firebaseURL = "https://buscatcher-copiar-default-rtdb.firebaseio.com/.json";
+    // 🔑 URL Firebase Realtime Database
+    var firebaseURL = "https://buscatcher-copiar-default-rtdb.firebaseio.com/usuarios.json";
 
-    // Función actualizar marcadores
+    // --- 1. Obtener ubicación propia y enviar a Firebase ---
+    function enviarUbicacion(lat, lng) {
+      // Generar ID único por usuario
+      let userId = localStorage.getItem("userId");
+      if (!userId) {
+        userId = "user_" + Math.floor(Math.random() * 10000);
+        localStorage.setItem("userId", userId);
+      }
+
+      // Subir ubicación a Firebase
+      fetch("https://buscatcher-copiar-default-rtdb.firebaseio.com/usuarios/" + userId + ".json", {
+        method: "PUT",
+        body: JSON.stringify({ lat: lat, lng: lng })
+      });
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(function(position) {
+        var lat = position.coords.latitude;
+        var lng = position.coords.longitude;
+
+        if (!myMarker) {
+          myMarker = L.marker([lat, lng], {icon: userIcon}).addTo(map).bindPopup("Tú estás aquí");
+          map.setView([lat, lng], 15);
+        } else {
+          myMarker.setLatLng([lat, lng]);
+        }
+
+        enviarUbicacion(lat, lng);
+      });
+    }
+
+    // --- 2. Mostrar otros usuarios en el mapa ---
     async function actualizarMapa() {
       let response = await fetch(firebaseURL);
       let data = await response.json();
-      if (!data) return;
 
-      // Usuarios
-      if (data.usuarios) {
-        Object.keys(data.usuarios).forEach(uid => {
-          let u = data.usuarios[uid];
-          if (!u.lat || !u.log) return;
-
-          if (usuarios[uid]) {
-            usuarios[uid].setLatLng([u.lat, u.log]);
+      if (data) {
+        Object.keys(data).forEach(userId => {
+          let u = data[userId];
+          if (!usuarios[userId]) {
+            usuarios[userId] = L.marker([u.lat, u.lng], {icon: otherIcon}).addTo(map).bindPopup("👤 " + userId);
           } else {
-            usuarios[uid] = L.marker([u.lat, u.log], {icon:userIcon}).addTo(map).bindPopup("👤 " + uid);
-          }
-        });
-      }
-
-      // Buses
-      if (data.buses) {
-        Object.keys(data.buses).forEach(bid => {
-          let b = data.buses[bid];
-          if (!b.lat || !b.log) return;
-
-          if (buses[bid]) {
-            buses[bid].setLatLng([b.lat, b.log]);
-          } else {
-            buses[bid] = L.marker([b.lat, b.log], {icon:busIcon}).addTo(map).bindPopup("🚍 " + bid);
+            usuarios[userId].setLatLng([u.lat, u.lng]);
           }
         });
       }
     }
 
-    // Actualizar cada 5s
-    setInterval(actualizarMapa, 5000);
+    setInterval(actualizarMapa, 4000);
     actualizarMapa();
   </script>
 </body>
